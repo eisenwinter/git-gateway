@@ -1,8 +1,14 @@
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+go.work
+*.out
+*.test
 .env
-gorm.db
 vendor/
 git-gateway
-
 .DS_Store
 .vscode
 www/dist/

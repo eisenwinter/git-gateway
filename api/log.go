@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"time"
 
-	chimiddleware "github.com/go-chi/chi/middleware"
+	chimiddleware "github.com/go-chi/chi/v5/middleware"
 	"github.com/sirupsen/logrus"
 )
 
@@ -40,17 +40,17 @@ type structuredLoggerEntry struct {
 	Logger logrus.FieldLogger
 }
 
-func (l *structuredLoggerEntry) Write(status, bytes int, elapsed time.Duration) {
-	l.Logger = l.Logger.WithFields(logrus.Fields{
+func (s *structuredLoggerEntry) Write(status, bytes int, header http.Header, elapsed time.Duration, extra interface{}) {
+	s.Logger = s.Logger.WithFields(logrus.Fields{
 		"status":   status,
 		"duration": elapsed.Nanoseconds(),
 	})
 
-	l.Logger.Info("request completed")
+	s.Logger.Info("request completed")
 }
 
-func (l *structuredLoggerEntry) Panic(v interface{}, stack []byte) {
-	l.Logger.WithFields(logrus.Fields{
+func (s *structuredLoggerEntry) Panic(v interface{}, stack []byte) {
+	s.Logger.WithFields(logrus.Fields{
 		"stack": string(stack),
 		"panic": fmt.Sprintf("%+v", v),
 	}).Panic("unhandled request panic")
@@ -62,14 +62,6 @@ func getLogEntry(r *http.Request) logrus.FieldLogger {
 		return logrus.NewEntry(logrus.StandardLogger())
 	}
 	return entry.Logger
-}
-
-func logEntrySetField(r *http.Request, key string, value interface{}) logrus.FieldLogger {
-	if entry, ok := r.Context().Value(chimiddleware.LogEntryCtxKey).(*structuredLoggerEntry); ok {
-		entry.Logger = entry.Logger.WithField(key, value)
-		return entry.Logger
-	}
-	return nil
 }
 
 func logEntrySetFields(r *http.Request, fields logrus.Fields) logrus.FieldLogger {

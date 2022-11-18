@@ -123,31 +123,26 @@ func (gl *GitLabGateway) authenticate(w http.ResponseWriter, r *http.Request) er
 	config := getConfig(ctx)
 
 	if claims == nil {
-		return errors.New("Access to endpoint not allowed: no claims found in Bearer token")
+		return errors.New("access to endpoint not allowed: no claims found in Bearer token")
 	}
 
 	if !gitlabAllowedRegexp.MatchString(r.URL.Path) {
-		return errors.New("Access to endpoint not allowed: this part of GitLab's API has been restricted")
+		return errors.New("access to endpoint not allowed: this part of GitLab's API has been restricted")
 	}
 
 	if len(config.Roles) == 0 {
 		return nil
 	}
 
-	roles, ok := claims.AppMetaData["roles"]
-	if ok {
-		roleStrings, _ := roles.([]interface{})
-		for _, data := range roleStrings {
-			role, _ := data.(string)
-			for _, adminRole := range config.Roles {
-				if role == adminRole {
-					return nil
-				}
+	for _, role := range claims.Roles {
+		for _, adminRole := range config.Roles {
+			if role == adminRole {
+				return nil
 			}
 		}
 	}
 
-	return errors.New("Access to endpoint not allowed: your role doesn't allow access")
+	return errors.New("access to endpoint not allowed: your role doesn't allow access")
 }
 
 var gitlabLinkRegex = regexp.MustCompile("<(.*?)>")
@@ -176,7 +171,7 @@ func rewriteGitlabLinkEntry(linkEntry, endpointAPIURL, proxyAPIURL string) strin
 
 func rewriteGitlabLinks(linkHeader, endpointAPIURL, proxyAPIURL string) string {
 	linkEntries := strings.Split(linkHeader, ",")
-	finalLinkEntries := make([]string, len(linkEntries), len(linkEntries))
+	finalLinkEntries := make([]string, len(linkEntries))
 	for i, linkEntry := range linkEntries {
 		finalLinkEntries[i] = rewriteGitlabLinkEntry(linkEntry, endpointAPIURL, proxyAPIURL)
 	}

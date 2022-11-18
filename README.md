@@ -1,5 +1,15 @@
 # git-gateway - Gateway to hosted git APIs
 
+This is a modified version of git-gateway, it is intended to run with gotrxx, this version does not support multi-instance mode.
+upstream changes will be merged if there are of significance.
+
+**Main difference to original setup**
+
+- A client ID is required.
+- Can choose between HMAC-based signing and RSA. (HSXXX,RSXX)
+- If RSXXX signing is used with jwks
+- If HSXXX signing is set the secret must be set
+
 **Secure role based access to the APIs of common Git Hosting providers.**
 
 When building sites with a JAMstack approach, a common pattern is to store all content as structured data in a Git repository instead of relying on an external database.

@@ -4,9 +4,8 @@ import (
 	"context"
 	"net/url"
 
-	jwt "github.com/dgrijalva/jwt-go"
+	jwt "github.com/golang-jwt/jwt/v4"
 	"github.com/netlify/git-gateway/conf"
-	"github.com/netlify/git-gateway/models"
 )
 
 type Role struct {
@@ -106,51 +105,5 @@ func getAccessToken(ctx context.Context) string {
 	if obj == nil {
 		return ""
 	}
-	return obj.(string)
-}
-
-func getInstanceID(ctx context.Context) string {
-	obj := ctx.Value(instanceIDKey)
-	if obj == nil {
-		return ""
-	}
-	return obj.(string)
-}
-
-func withInstance(ctx context.Context, i *models.Instance) context.Context {
-	return context.WithValue(ctx, instanceKey, i)
-}
-
-func getInstance(ctx context.Context) *models.Instance {
-	obj := ctx.Value(instanceKey)
-	if obj == nil {
-		return nil
-	}
-	return obj.(*models.Instance)
-}
-
-func withSignature(ctx context.Context, id string) context.Context {
-	return context.WithValue(ctx, signatureKey, id)
-}
-
-func getSignature(ctx context.Context) string {
-	obj := ctx.Value(signatureKey)
-	if obj == nil {
-		return ""
-	}
-
-	return obj.(string)
-}
-
-func withNetlifyID(ctx context.Context, id string) context.Context {
-	return context.WithValue(ctx, netlifyIDKey, id)
-}
-
-func getNetlifyID(ctx context.Context) string {
-	obj := ctx.Value(netlifyIDKey)
-	if obj == nil {
-		return ""
-	}
-
 	return obj.(string)
 }

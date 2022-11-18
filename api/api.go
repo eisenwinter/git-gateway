@@ -9,12 +9,9 @@ import (
 	"syscall"
 	"time"
 
-	jwt "github.com/dgrijalva/jwt-go"
-	"github.com/go-chi/chi"
+	"github.com/go-chi/cors"
+	jwt "github.com/golang-jwt/jwt/v4"
 	"github.com/netlify/git-gateway/conf"
-	"github.com/netlify/git-gateway/storage"
-	"github.com/netlify/git-gateway/storage/dial"
-	"github.com/rs/cors"
 	"github.com/sebest/xff"
 	"github.com/sirupsen/logrus"
 )
@@ -28,17 +25,20 @@ var bearerRegexp = regexp.MustCompile(`^(?:B|b)earer (\S+$)`)
 
 // API is the main REST API
 type API struct {
-	handler http.Handler
-	db      storage.Connection
-	config  *conf.GlobalConfiguration
-	version string
+	handler       http.Handler
+	config        *conf.GlobalConfiguration
+	version       string
+	keyFx         KeyFuncResolver
+	signingMethod string
+	clientID      string
 }
 
 type GatewayClaims struct {
-	jwt.StandardClaims
-	Email        string                 `json:"email"`
-	AppMetaData  map[string]interface{} `json:"app_metadata"`
-	UserMetaData map[string]interface{} `json:"user_metadata"`
+	jwt.RegisteredClaims
+	Email    string   `json:"email"`
+	ClientID string   `json:"client_id"`
+	Scope    string   `json:"scope"`
+	Roles    []string `json:"roles"`
 }
 
 // ListenAndServe starts the REST API
@@ -75,14 +75,9 @@ func waitForTermination(log logrus.FieldLogger, done <-chan struct{}) {
 	}
 }
 
-// NewAPI instantiates a new REST API
-func NewAPI(globalConfig *conf.GlobalConfiguration, db storage.Connection) *API {
-	return NewAPIWithVersion(context.Background(), globalConfig, db, defaultVersion)
-}
-
 // NewAPIWithVersion creates a new REST API using the specified version
-func NewAPIWithVersion(ctx context.Context, globalConfig *conf.GlobalConfiguration, db storage.Connection, version string) *API {
-	api := &API{config: globalConfig, db: db, version: version}
+func NewAPIWithVersion(ctx context.Context, globalConfig *conf.GlobalConfiguration, version string, keyFuncResolver KeyFuncResolver, signingMethod string, clientID string) *API {
+	api := &API{config: globalConfig, version: version, keyFx: keyFuncResolver, signingMethod: signingMethod, clientID: clientID}
 
 	xffmw, _ := xff.Default()
 
@@ -92,70 +87,23 @@ func NewAPIWithVersion(ctx context.Context, globalConfig *conf.GlobalConfigurati
 	r.UseBypass(newStructuredLogger(logrus.StandardLogger()))
 	r.Use(recoverer)
 
+	r.UseBypass(cors.Handler(cors.Options{
+		AllowedMethods:   []string{http.MethodGet, http.MethodHead, http.MethodPost, http.MethodPut, http.MethodDelete, http.MethodPatch},
+		AllowedHeaders:   []string{"Accept", "Authorization", "Private-Token", "Content-Type", audHeaderName},
+		AllowCredentials: true,
+		MaxAge:           86400,
+	}))
+
 	r.Get("/health", api.HealthCheck)
 
 	r.Route("/", func(r *router) {
-		if globalConfig.MultiInstanceMode {
-			r.Use(api.loadJWSSignatureHeader)
-			r.Use(api.loadInstanceConfig)
-		}
 		r.With(api.requireAuthentication).Mount("/github", NewGitHubGateway())
 		r.With(api.requireAuthentication).Mount("/gitlab", NewGitLabGateway())
 		r.With(api.requireAuthentication).Mount("/bitbucket", NewBitBucketGateway())
 		r.With(api.requireAuthentication).Get("/settings", api.Settings)
 	})
-
-	if globalConfig.MultiInstanceMode {
-		// Operator microservice API
-		r.With(api.verifyOperatorRequest).Get("/", api.GetAppManifest)
-		r.Route("/instances", func(r *router) {
-			r.Use(api.verifyOperatorRequest)
-
-			r.Post("/", api.CreateInstance)
-			r.Route("/{instance_id}", func(r *router) {
-				r.Use(api.loadInstance)
-
-				r.Get("/", api.GetInstance)
-				r.Put("/", api.UpdateInstance)
-				r.Delete("/", api.DeleteInstance)
-			})
-		})
-	}
-
-	corsHandler := cors.New(cors.Options{
-		AllowedMethods:   []string{http.MethodGet, http.MethodHead, http.MethodPost, http.MethodPut, http.MethodDelete, http.MethodPatch},
-		AllowedHeaders:   []string{"Accept", "Authorization", "Private-Token", "Content-Type", audHeaderName},
-		AllowCredentials: true,
-		MaxAge:           86400,
-	})
-
-	api.handler = corsHandler.Handler(chi.ServerBaseContext(r, ctx))
+	api.handler = r
 	return api
-}
-
-// NewAPIFromConfigFile creates a new REST API using the provided configuration file.
-func NewAPIFromConfigFile(filename string, version string) (*API, error) {
-	globalConfig, err := conf.LoadGlobal(filename)
-	if err != nil {
-		return nil, err
-	}
-	config, err := conf.LoadConfig(filename)
-	if err != nil {
-		return nil, err
-	}
-
-	db, err := dial.Dial(globalConfig)
-	if err != nil {
-		return nil, err
-	}
-
-	logrus.Infof("Config is: %v", config)
-	ctx, err := WithInstanceConfig(context.Background(), config, "")
-	if err != nil {
-		logrus.Fatalf("Error loading instance config: %+v", err)
-	}
-
-	return NewAPIWithVersion(ctx, globalConfig, db, version), nil
 }
 
 func (a *API) HealthCheck(w http.ResponseWriter, r *http.Request) error {

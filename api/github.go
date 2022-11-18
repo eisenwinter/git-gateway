@@ -14,7 +14,7 @@ type GitHubGateway struct {
 }
 
 var pathRegexp = regexp.MustCompile("^/github/?")
-var allowedRegexp = regexp.MustCompile("^/github/((git|contents|pulls|branches|merges|statuses|compare|commits)/?|(issues/(\\d+)/labels))")
+var allowedRegexp = regexp.MustCompile(`^/github/((git|contents|pulls|branches|merges|statuses|compare|commits)/?|(issues/(\\d+)/labels))`)
 
 func NewGitHubGateway() *GitHubGateway {
 	return &GitHubGateway{
@@ -84,31 +84,26 @@ func (gh *GitHubGateway) authenticate(w http.ResponseWriter, r *http.Request) er
 	config := getConfig(ctx)
 
 	if claims == nil {
-		return errors.New("Access to endpoint not allowed: no claims found in Bearer token")
+		return errors.New("access to endpoint not allowed: no claims found in Bearer token")
 	}
 
 	if !allowedRegexp.MatchString(r.URL.Path) {
-		return errors.New("Access to endpoint not allowed: this part of GitHub's API has been restricted")
+		return errors.New("access to endpoint not allowed: this part of GitHub's API has been restricted")
 	}
 
 	if len(config.Roles) == 0 {
 		return nil
 	}
 
-	roles, ok := claims.AppMetaData["roles"]
-	if ok {
-		roleStrings, _ := roles.([]interface{})
-		for _, data := range roleStrings {
-			role, _ := data.(string)
-			for _, adminRole := range config.Roles {
-				if role == adminRole {
-					return nil
-				}
+	for _, role := range claims.Roles {
+		for _, adminRole := range config.Roles {
+			if role == adminRole {
+				return nil
 			}
 		}
 	}
 
-	return errors.New("Access to endpoint not allowed: your role doesn't allow access")
+	return errors.New("access to endpoint not allowed: your role doesn't allow access")
 }
 
 type GitHubTransport struct{}

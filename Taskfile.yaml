@@ -1,0 +1,45 @@
+# https://taskfile.dev
+
+version: '3'
+vars:
+  EXE: git-gateway{{exeExt}}
+
+tasks:
+  default:
+    cmds: 
+      - task -l
+
+  build:
+    desc: "build the compiled binary"
+    cmds:
+      - go build -ldflags "-X github.com/eisenwinter/git-gateway/cmd.Version=`git rev-parse HEAD`" -v -o bin/{{.EXE}}
+
+  lint:golangci:
+    desc: "Runs golang ci linter"
+    cmds:
+      - golangci-lint --verbose run
+    silent: true
+
+  lint:goreportcard:
+    desc: "Runs goreportcard"
+    cmds:
+      - goreportcard-cli -v
+    silent: true
+
+  lint:gofmt:
+    desc: "Runs gofmt with -s -w"
+    cmds:
+      - gofmt -s -w ./..
+    silent: true
+
+  lint:wrapcheck:
+    desc: "Run wrapcheck"
+    cmds:
+      - wrapcheck ./...
+    silent: true
+
+  lint:staticcheck:
+    desc: "Run staticcheck"
+    cmds:
+      - staticcheck ./...
+    silent: true

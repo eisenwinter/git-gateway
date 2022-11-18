@@ -1,7 +1,9 @@
 package conf
 
 import (
+	"errors"
 	"os"
+	"strings"
 
 	"github.com/joho/godotenv"
 	"github.com/kelseyhightower/envconfig"
@@ -33,18 +35,12 @@ type BitBucketConfig struct {
 	Repo         string `envconfig:"REPO" json:"repo"`
 }
 
-// DBConfiguration holds all the database related configuration.
-type DBConfiguration struct {
-	Dialect     string `json:"dialect"`
-	Driver      string `json:"driver" required:"true"`
-	URL         string `json:"url" envconfig:"DATABASE_URL" required:"true"`
-	Namespace   string `json:"namespace"`
-	Automigrate bool   `json:"automigrate"`
-}
-
 // JWTConfiguration holds all the JWT related configuration.
 type JWTConfiguration struct {
-	Secret string `json:"secret" required:"true"`
+	SigningMethod string `json:"signing_method"`
+	Secret        string `json:"secret" required:"false"`
+	JWKs          string `json:"jwks" required:"false"`
+	ClientID      string `json:"client_id" required:"true"`
 }
 
 // GlobalConfiguration holds all the configuration that applies to all instances.
@@ -54,10 +50,7 @@ type GlobalConfiguration struct {
 		Port     int `envconfig:"PORT" default:"8081"`
 		Endpoint string
 	}
-	DB                DBConfiguration
-	Logging           LoggingConfig `envconfig:"LOG"`
-	OperatorToken     string        `split_words:"true"`
-	MultiInstanceMode bool
+	Logging LoggingConfig `envconfig:"LOG"`
 }
 
 // Configuration holds all the per-instance configuration.
@@ -110,6 +103,13 @@ func LoadConfig(filename string) (*Configuration, error) {
 		return nil, err
 	}
 	config.ApplyDefaults()
+	if strings.HasPrefix(config.JWT.SigningMethod, "HS") && config.JWT.Secret == "" {
+		return nil, errors.New("required key GITGATEWAY_JWT_SECRET needs to be set for HMAC based signing")
+	}
+
+	if strings.HasPrefix(config.JWT.SigningMethod, "RS") && config.JWT.JWKs == "" {
+		return nil, errors.New("required key GITGATEWAY_JWT_JWKS needs to be set for RSA signing")
+	}
 	return config, nil
 }
 
@@ -126,5 +126,8 @@ func (config *Configuration) ApplyDefaults() {
 	}
 	if config.BitBucket.Endpoint == "" {
 		config.BitBucket.Endpoint = DefaultBitBucketEndpoint
+	}
+	if config.JWT.SigningMethod == "" {
+		config.JWT.SigningMethod = "HS256"
 	}
 }

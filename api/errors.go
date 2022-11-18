@@ -43,14 +43,6 @@ func (e *OAuthError) Cause() error {
 	return e
 }
 
-func oauthError(err string, description string) *OAuthError {
-	return &OAuthError{Err: err, Description: description}
-}
-
-func badRequestError(fmtString string, args ...interface{}) *HTTPError {
-	return httpError(http.StatusBadRequest, fmtString, args...)
-}
-
 func internalServerError(fmtString string, args ...interface{}) *HTTPError {
 	return httpError(http.StatusInternalServerError, fmtString, args...)
 }
@@ -61,10 +53,6 @@ func notFoundError(fmtString string, args ...interface{}) *HTTPError {
 
 func unauthorizedError(fmtString string, args ...interface{}) *HTTPError {
 	return httpError(http.StatusUnauthorized, fmtString, args...)
-}
-
-func unprocessableEntityError(fmtString string, args ...interface{}) *HTTPError {
-	return httpError(http.StatusUnprocessableEntity, fmtString, args...)
 }
 
 // HTTPError is an error with a message and an HTTP status code.

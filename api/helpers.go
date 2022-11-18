@@ -8,7 +8,6 @@ import (
 	"strings"
 
 	"github.com/netlify/git-gateway/conf"
-	"github.com/netlify/git-gateway/models"
 	"github.com/pborman/uuid"
 	"github.com/pkg/errors"
 )
@@ -22,14 +21,6 @@ func addRequestID(w http.ResponseWriter, r *http.Request) (context.Context, erro
 
 func sanitizeOutput(obj interface{}) interface{} {
 	switch v := obj.(type) {
-	case InstanceResponse:
-		v.Instance.BaseConfig.GitHub.AccessToken = ""
-	case *InstanceResponse:
-		v.Instance.BaseConfig.GitHub.AccessToken = ""
-	case models.Instance:
-		v.BaseConfig.GitHub.AccessToken = ""
-	case *models.Instance:
-		v.BaseConfig.GitHub.AccessToken = ""
 	case *conf.Configuration:
 		v.GitHub.AccessToken = ""
 	case conf.Configuration:

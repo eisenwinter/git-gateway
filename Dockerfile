@@ -1,8 +1,12 @@
-FROM golang:1.13
+FROM golang:1.19-buster as builder
+WORKDIR /app
+COPY go.* ./
+RUN go mod download
+COPY . ./
+RUN export CGO_ENABLED=0 && go build -v -o git-gateway
 
-ADD . /go/src/github.com/netlify/git-gateway
-
-RUN useradd -m netlify && cd /go/src/github.com/netlify/git-gateway && make deps build && mv git-gateway /usr/local/bin/
-
-USER netlify
-CMD ["git-gateway"]
+FROM gcr.io/distroless/static-debian11:nonroot
+WORKDIR /app
+COPY --from=builder /app/git-gateway /app/git-gateway
+USER nonroot:nonroot
+CMD ["/app/git-gateway"]

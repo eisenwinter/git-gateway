@@ -36,9 +36,6 @@ func NewBitBucketGateway() *BitBucketGateway {
 var bitbucketPathRegexp = regexp.MustCompile("^/bitbucket/?")
 var bitbucketAllowedRegexp = regexp.MustCompile("^/bitbucket/src/?")
 
-var bitbucketTokenExpirationMessageRegexp = regexp.MustCompile("(?i)^access token expired")
-var currentAccessToken *oauth2.Token
-
 type notifyRefreshTokenSource struct {
 	new oauth2.TokenSource
 	mu  sync.Mutex // guards t
@@ -149,31 +146,26 @@ func (bb *BitBucketGateway) authenticate(w http.ResponseWriter, r *http.Request)
 	config := getConfig(ctx)
 
 	if claims == nil {
-		return errors.New("Access to endpoint not allowed: no claims found in Bearer token")
+		return errors.New("access to endpoint not allowed: no claims found in bearer token")
 	}
 
 	if !bitbucketAllowedRegexp.MatchString(r.URL.Path) {
-		return errors.New("Access to endpoint not allowed: this part of BitBucket's API has been restricted")
+		return errors.New("access to endpoint not allowed: this part of BitBucket's API has been restricted")
 	}
 
 	if len(config.Roles) == 0 {
 		return nil
 	}
 
-	roles, ok := claims.AppMetaData["roles"]
-	if ok {
-		roleStrings, _ := roles.([]interface{})
-		for _, data := range roleStrings {
-			role, _ := data.(string)
-			for _, adminRole := range config.Roles {
-				if role == adminRole {
-					return nil
-				}
+	for _, role := range claims.Roles {
+		for _, adminRole := range config.Roles {
+			if role == adminRole {
+				return nil
 			}
 		}
 	}
 
-	return errors.New("Access to endpoint not allowed: your role doesn't allow access")
+	return errors.New("access to endpoint not allowed: your role doesn't allow access")
 }
 
 func rewriteBitBucketLink(link, endpointAPIURL, proxyAPIURL string) string {
@@ -212,6 +204,9 @@ func rewriteLinksInBitBucketResponse(resp *http.Response, endpointAPIURL, proxyA
 	}
 
 	newBodyBytes, err := json.Marshal(b)
+	if err != nil {
+		return err
+	}
 
 	switch resp.Header.Get("Content-Encoding") {
 	case "gzip":
