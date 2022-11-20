@@ -3,7 +3,7 @@ package api
 import (
 	"testing"
 
-	"github.com/netlify/git-gateway/conf"
+	"github.com/eisenwinter/git-gateway/conf"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

@@ -15,7 +15,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/netlify/git-gateway/conf"
+	"github.com/eisenwinter/git-gateway/conf"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/bitbucket"
 )

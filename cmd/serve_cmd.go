@@ -3,8 +3,8 @@ package cmd
 import (
 	"fmt"
 
-	"github.com/netlify/git-gateway/api"
-	"github.com/netlify/git-gateway/conf"
+	"github.com/eisenwinter/git-gateway/api"
+	"github.com/eisenwinter/git-gateway/conf"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )

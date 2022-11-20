@@ -4,7 +4,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 
-	"github.com/netlify/git-gateway/conf"
+	"github.com/eisenwinter/git-gateway/conf"
 )
 
 var configFile = ""

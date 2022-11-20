@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/netlify/git-gateway/conf"
+	"github.com/eisenwinter/git-gateway/conf"
 	"github.com/pborman/uuid"
 	"github.com/pkg/errors"
 )

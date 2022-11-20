@@ -3,7 +3,7 @@ package main
 import (
 	"log"
 
-	"github.com/netlify/git-gateway/cmd"
+	"github.com/eisenwinter/git-gateway/cmd"
 )
 
 func main() {

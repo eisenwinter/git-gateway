@@ -7,7 +7,7 @@ import (
 	"net/url"
 	"regexp"
 
-	"github.com/netlify/git-gateway/conf"
+	"github.com/eisenwinter/git-gateway/conf"
 )
 
 // GitHubGateway acts as a proxy to GitHub

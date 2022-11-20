@@ -9,9 +9,9 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/eisenwinter/git-gateway/conf"
 	"github.com/go-chi/cors"
 	jwt "github.com/golang-jwt/jwt/v4"
-	"github.com/netlify/git-gateway/conf"
 	"github.com/sebest/xff"
 	"github.com/sirupsen/logrus"
 )

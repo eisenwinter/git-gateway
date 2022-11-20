@@ -8,8 +8,8 @@ import (
 	"time"
 
 	"github.com/MicahParks/keyfunc"
+	"github.com/eisenwinter/git-gateway/conf"
 	jwt "github.com/golang-jwt/jwt/v4"
-	"github.com/netlify/git-gateway/conf"
 	"github.com/sirupsen/logrus"
 )
 

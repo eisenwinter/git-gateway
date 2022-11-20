@@ -10,7 +10,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/netlify/git-gateway/conf"
+	"github.com/eisenwinter/git-gateway/conf"
 	"github.com/sirupsen/logrus"
 )
 

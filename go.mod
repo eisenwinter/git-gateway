@@ -1,4 +1,4 @@
-module github.com/netlify/git-gateway
+module github.com/eisenwinter/git-gateway
 
 go 1.18
 
