@@ -3,9 +3,10 @@ module github.com/eisenwinter/git-gateway
 go 1.18
 
 require (
+	github.com/MicahParks/keyfunc v1.5.3
 	github.com/go-chi/chi/v5 v5.0.7
 	github.com/go-chi/cors v1.2.1
-	github.com/golang-jwt/jwt v3.2.2+incompatible
+	github.com/golang-jwt/jwt/v4 v4.4.2
 	github.com/joho/godotenv v1.4.0
 	github.com/kelseyhightower/envconfig v1.4.0
 	github.com/pborman/uuid v1.2.1
@@ -18,9 +19,7 @@ require (
 )
 
 require (
-	github.com/MicahParks/keyfunc v1.5.3 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
-	github.com/golang-jwt/jwt/v4 v4.4.2 // indirect
 	github.com/golang/protobuf v1.5.2 // indirect
 	github.com/google/go-cmp v0.5.9 // indirect
 	github.com/google/uuid v1.3.0 // indirect
