@@ -5,7 +5,6 @@ import (
 	"net/url"
 
 	jwt "github.com/golang-jwt/jwt/v4"
-	"github.com/netlify/git-gateway/conf"
 )
 
 type Role struct {
@@ -64,24 +63,6 @@ func getRequestID(ctx context.Context) string {
 	}
 
 	return obj.(string)
-}
-
-func getConfig(ctx context.Context) *conf.Configuration {
-	obj := ctx.Value(configKey)
-	if obj == nil {
-		return nil
-	}
-
-	config := obj.(*conf.Configuration)
-	return config
-}
-
-func withConfig(ctx context.Context, config *conf.Configuration) context.Context {
-	return context.WithValue(ctx, configKey, config)
-}
-
-func withInstanceID(ctx context.Context, id string) context.Context {
-	return context.WithValue(ctx, instanceIDKey, id)
 }
 
 func withProxyTarget(ctx context.Context, target *url.URL) context.Context {

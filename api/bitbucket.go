@@ -15,21 +15,24 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/netlify/git-gateway/conf"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/bitbucket"
 )
 
 type BitBucketGateway struct {
-	proxy *httputil.ReverseProxy
+	proxy  *httputil.ReverseProxy
+	config *conf.Configuration
 }
 
-func NewBitBucketGateway() *BitBucketGateway {
+func NewBitBucketGateway(config *conf.Configuration) *BitBucketGateway {
 	return &BitBucketGateway{
 		proxy: &httputil.ReverseProxy{
 			Director:     bitbucketDirector,
 			Transport:    &BitBucketTransport{},
 			ErrorHandler: proxyErrorHandler,
 		},
+		config: config,
 	}
 }
 
@@ -58,8 +61,7 @@ func (s *notifyRefreshTokenSource) Token() (*oauth2.Token, error) {
 
 var currentTokenSource *notifyRefreshTokenSource
 
-func getTokenSource(ctx context.Context) *notifyRefreshTokenSource {
-	config := getConfig(ctx)
+func getTokenSource(ctx context.Context, config *conf.Configuration) *notifyRefreshTokenSource {
 	if currentTokenSource != nil {
 		return currentTokenSource
 	}
@@ -110,7 +112,7 @@ func bitbucketDirector(r *http.Request) {
 
 func (bb *BitBucketGateway) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	config := getConfig(ctx)
+	config := bb.config
 	if config == nil || config.BitBucket.RefreshToken == "" {
 		handleError(notFoundError("No BitBucket Settings Configured"), w, r)
 		return
@@ -129,7 +131,7 @@ func (bb *BitBucketGateway) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tokenSource := getTokenSource(ctx)
+	tokenSource := getTokenSource(ctx, bb.config)
 	token, err := tokenSource.Token()
 	if err != nil {
 		handleError(internalServerError("Unable to process BitBucket endpoint"), w, r)
@@ -143,7 +145,7 @@ func (bb *BitBucketGateway) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 func (bb *BitBucketGateway) authenticate(w http.ResponseWriter, r *http.Request) error {
 	ctx := r.Context()
 	claims := getClaims(ctx)
-	config := getConfig(ctx)
+	config := bb.config
 
 	if claims == nil {
 		return errors.New("access to endpoint not allowed: no claims found in bearer token")
@@ -225,11 +227,12 @@ func rewriteLinksInBitBucketResponse(resp *http.Response, endpointAPIURL, proxyA
 	return nil
 }
 
-type BitBucketTransport struct{}
+type BitBucketTransport struct {
+	config *conf.Configuration
+}
 
 func (t *BitBucketTransport) RoundTrip(r *http.Request) (*http.Response, error) {
-	ctx := r.Context()
-	config := getConfig(ctx)
+	config := t.config
 	resp, err := http.DefaultTransport.RoundTrip(r)
 	if err != nil {
 		return resp, err

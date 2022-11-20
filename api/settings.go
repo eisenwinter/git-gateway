@@ -10,8 +10,7 @@ type Settings struct {
 }
 
 func (a *API) Settings(w http.ResponseWriter, r *http.Request) error {
-	ctx := r.Context()
-	config := getConfig(ctx)
+	config := a.instanceConfig
 
 	settings := Settings{
 		GitHub:    config.GitHub.Repo != "",

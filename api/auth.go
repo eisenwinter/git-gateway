@@ -26,7 +26,7 @@ func NewKeyFuncResolver(config *conf.JWTConfiguration) KeyFuncResolver {
 				RefreshInterval:   time.Hour,
 				RefreshRateLimit:  time.Minute * 5,
 				RefreshTimeout:    time.Second * 10,
-				RefreshUnknownKID: true,
+				RefreshUnknownKID: false,
 			}
 			jwks, err := keyfunc.Get(config.JWKs, options)
 			if err != nil {

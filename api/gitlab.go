@@ -10,12 +10,14 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/netlify/git-gateway/conf"
 	"github.com/sirupsen/logrus"
 )
 
 // GitLabGateway acts as a proxy to Gitlab
 type GitLabGateway struct {
-	proxy *httputil.ReverseProxy
+	proxy  *httputil.ReverseProxy
+	config *conf.Configuration
 }
 
 var gitlabPathRegexp = regexp.MustCompile("^/gitlab/?")
@@ -26,72 +28,74 @@ const (
 	tokenTypePAT    = "personal_access"
 )
 
-func NewGitLabGateway() *GitLabGateway {
+func NewGitLabGateway(config *conf.Configuration) *GitLabGateway {
 	return &GitLabGateway{
 		proxy: &httputil.ReverseProxy{
-			Director:     gitlabDirector,
+			Director:     gitlabDirector(config),
 			Transport:    &GitLabTransport{},
 			ErrorHandler: proxyErrorHandler,
 		},
+		config: config,
 	}
 }
 
-func gitlabDirector(r *http.Request) {
-	ctx := r.Context()
-	target := getProxyTarget(ctx)
-	accessToken := getAccessToken(ctx)
+func gitlabDirector(config *conf.Configuration) func(r *http.Request) {
+	return func(r *http.Request) {
+		ctx := r.Context()
+		target := getProxyTarget(ctx)
+		accessToken := getAccessToken(ctx)
 
-	targetQuery := target.RawQuery
-	r.Host = target.Host
-	r.URL.Scheme = target.Scheme
-	r.URL.Host = target.Host
-	// We need to set URL.Opaque using the target and r.URL EscapedPath
-	// methods, because the Go stdlib URL parsing automatically converts
-	// %2F to / in URL paths, and GitLab requires %2F to be preserved
-	// as-is.
-	r.URL.Opaque = "//" + target.Host + singleJoiningSlash(target.EscapedPath(), gitlabPathRegexp.ReplaceAllString(r.URL.EscapedPath(), "/"))
-	if targetQuery == "" || r.URL.RawQuery == "" {
-		r.URL.RawQuery = targetQuery + r.URL.RawQuery
-	} else {
-		r.URL.RawQuery = targetQuery + "&" + r.URL.RawQuery
-	}
-	if _, ok := r.Header["User-Agent"]; !ok {
-		// explicitly disable User-Agent so it's not set to default value
-		r.Header.Set("User-Agent", "")
-	}
-
-	// remove header which causes false positives for blocking on Gitlab loadbalancers
-	r.Header.Del("Client-IP")
-
-	config := getConfig(ctx)
-	tokenType := config.GitLab.AccessTokenType
-
-	if tokenType == "" && strings.HasPrefix(accessToken, gitlabPATPrefix) {
-		tokenType = tokenTypePAT
-	}
-
-	if tokenType == tokenTypePAT {
-		// Private access token
-		r.Header.Del("Authorization")
-		if r.Method != http.MethodOptions {
-			r.Header.Set("Private-Token", accessToken)
+		targetQuery := target.RawQuery
+		r.Host = target.Host
+		r.URL.Scheme = target.Scheme
+		r.URL.Host = target.Host
+		// We need to set URL.Opaque using the target and r.URL EscapedPath
+		// methods, because the Go stdlib URL parsing automatically converts
+		// %2F to / in URL paths, and GitLab requires %2F to be preserved
+		// as-is.
+		r.URL.Opaque = "//" + target.Host + singleJoiningSlash(target.EscapedPath(), gitlabPathRegexp.ReplaceAllString(r.URL.EscapedPath(), "/"))
+		if targetQuery == "" || r.URL.RawQuery == "" {
+			r.URL.RawQuery = targetQuery + r.URL.RawQuery
+		} else {
+			r.URL.RawQuery = targetQuery + "&" + r.URL.RawQuery
 		}
-	} else {
-		// OAuth token
-		r.Header.Del("Authorization")
-		if r.Method != http.MethodOptions {
-			r.Header.Set("Authorization", "Bearer "+accessToken)
+		if _, ok := r.Header["User-Agent"]; !ok {
+			// explicitly disable User-Agent so it's not set to default value
+			r.Header.Set("User-Agent", "")
 		}
-	}
 
-	log := getLogEntry(r)
-	log.WithField("token_type", tokenType).
-		Infof("Proxying to GitLab: %v", r.URL.String())
+		// remove header which causes false positives for blocking on Gitlab loadbalancers
+		r.Header.Del("Client-IP")
+
+		tokenType := config.GitLab.AccessTokenType
+
+		if tokenType == "" && strings.HasPrefix(accessToken, gitlabPATPrefix) {
+			tokenType = tokenTypePAT
+		}
+
+		if tokenType == tokenTypePAT {
+			// Private access token
+			r.Header.Del("Authorization")
+			if r.Method != http.MethodOptions {
+				r.Header.Set("Private-Token", accessToken)
+			}
+		} else {
+			// OAuth token
+			r.Header.Del("Authorization")
+			if r.Method != http.MethodOptions {
+				r.Header.Set("Authorization", "Bearer "+accessToken)
+			}
+		}
+
+		log := getLogEntry(r)
+		log.WithField("token_type", tokenType).
+			Infof("Proxying to GitLab: %v", r.URL.String())
+	}
 }
 
 func (gl *GitLabGateway) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	config := getConfig(ctx)
+	config := gl.config
 	if config == nil || config.GitLab.AccessToken == "" {
 		handleError(notFoundError("No GitLab Settings Configured"), w, r)
 		return
@@ -120,7 +124,7 @@ func (gl *GitLabGateway) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 func (gl *GitLabGateway) authenticate(w http.ResponseWriter, r *http.Request) error {
 	ctx := r.Context()
 	claims := getClaims(ctx)
-	config := getConfig(ctx)
+	config := gl.config
 
 	if claims == nil {
 		return errors.New("access to endpoint not allowed: no claims found in Bearer token")
@@ -179,11 +183,12 @@ func rewriteGitlabLinks(linkHeader, endpointAPIURL, proxyAPIURL string) string {
 	return finalLinkHeader
 }
 
-type GitLabTransport struct{}
+type GitLabTransport struct {
+	config *conf.Configuration
+}
 
 func (t *GitLabTransport) RoundTrip(r *http.Request) (*http.Response, error) {
-	ctx := r.Context()
-	config := getConfig(ctx)
+	config := t.config
 	resp, err := http.DefaultTransport.RoundTrip(r)
 	if err == nil {
 		// remove CORS headers from GitLab and use our own

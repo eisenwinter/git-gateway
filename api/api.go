@@ -25,12 +25,14 @@ var bearerRegexp = regexp.MustCompile(`^(?:B|b)earer (\S+$)`)
 
 // API is the main REST API
 type API struct {
-	handler       http.Handler
-	config        *conf.GlobalConfiguration
-	version       string
-	keyFx         KeyFuncResolver
-	signingMethod string
-	clientID      string
+	handler        http.Handler
+	globalConfig   *conf.GlobalConfiguration
+	version        string
+	keyFx          KeyFuncResolver
+	signingMethod  string
+	clientID       string
+	instanceID     string
+	instanceConfig *conf.Configuration
 }
 
 type GatewayClaims struct {
@@ -76,9 +78,14 @@ func waitForTermination(log logrus.FieldLogger, done <-chan struct{}) {
 }
 
 // NewAPIWithVersion creates a new REST API using the specified version
-func NewAPIWithVersion(ctx context.Context, globalConfig *conf.GlobalConfiguration, version string, keyFuncResolver KeyFuncResolver, signingMethod string, clientID string) *API {
-	api := &API{config: globalConfig, version: version, keyFx: keyFuncResolver, signingMethod: signingMethod, clientID: clientID}
-
+func NewAPIWithVersion(
+	globalConfig *conf.GlobalConfiguration,
+	version string,
+	opts ...Option) *API {
+	api := &API{globalConfig: globalConfig, version: version}
+	for _, opt := range opts {
+		opt(api)
+	}
 	xffmw, _ := xff.Default()
 
 	r := newRouter()
@@ -97,9 +104,9 @@ func NewAPIWithVersion(ctx context.Context, globalConfig *conf.GlobalConfigurati
 	r.Get("/health", api.HealthCheck)
 
 	r.Route("/", func(r *router) {
-		r.With(api.requireAuthentication).Mount("/github", NewGitHubGateway())
-		r.With(api.requireAuthentication).Mount("/gitlab", NewGitLabGateway())
-		r.With(api.requireAuthentication).Mount("/bitbucket", NewBitBucketGateway())
+		r.With(api.requireAuthentication).Mount("/github", NewGitHubGateway(api.instanceConfig))
+		r.With(api.requireAuthentication).Mount("/gitlab", NewGitLabGateway(api.instanceConfig))
+		r.With(api.requireAuthentication).Mount("/bitbucket", NewBitBucketGateway(api.instanceConfig))
 		r.With(api.requireAuthentication).Get("/settings", api.Settings)
 	})
 	api.handler = r
@@ -114,9 +121,19 @@ func (a *API) HealthCheck(w http.ResponseWriter, r *http.Request) error {
 	})
 }
 
-func WithInstanceConfig(ctx context.Context, config *conf.Configuration, instanceID string) (context.Context, error) {
-	ctx = withConfig(ctx, config)
-	ctx = withInstanceID(ctx, instanceID)
+type Option = func(c *API)
 
-	return ctx, nil
+func WithInstanceConfig(config *conf.Configuration, instanceID string) Option {
+	return func(c *API) {
+		c.instanceConfig = config
+		c.instanceID = instanceID
+	}
+}
+
+func WithJwtVerifier(config *conf.Configuration) Option {
+	return func(c *API) {
+		c.clientID = config.JWT.ClientID
+		c.signingMethod = config.JWT.SigningMethod
+		c.keyFx = NewKeyFuncResolver(&config.JWT)
+	}
 }

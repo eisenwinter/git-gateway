@@ -20,7 +20,6 @@ var rootCmd = cobra.Command{
 func RootCommand() *cobra.Command {
 	rootCmd.AddCommand(&serveCmd, &versionCmd)
 	rootCmd.PersistentFlags().StringVarP(&configFile, "config", "c", "", "the config file to use")
-
 	return &rootCmd
 }
 
