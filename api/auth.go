@@ -17,17 +17,16 @@ type KeyFuncResolver func(context.Context) (jwt.Keyfunc, error)
 
 func NewKeyFuncResolver(config *conf.JWTConfiguration) KeyFuncResolver {
 	if strings.HasPrefix(config.SigningMethod, "RS") {
+		options := keyfunc.Options{
+			RefreshErrorHandler: func(err error) {
+				log.Printf("There was an error with the jwt.Keyfunc\nError: %s", err.Error())
+			},
+			RefreshInterval:   time.Hour,
+			RefreshRateLimit:  time.Minute * 5,
+			RefreshTimeout:    time.Second * 10,
+			RefreshUnknownKID: true,
+		}
 		return func(ctx context.Context) (jwt.Keyfunc, error) {
-			options := keyfunc.Options{
-				Ctx: ctx,
-				RefreshErrorHandler: func(err error) {
-					log.Printf("There was an error with the jwt.Keyfunc\nError: %s", err.Error())
-				},
-				RefreshInterval:   time.Hour,
-				RefreshRateLimit:  time.Minute * 5,
-				RefreshTimeout:    time.Second * 10,
-				RefreshUnknownKID: false,
-			}
 			jwks, err := keyfunc.Get(config.JWKs, options)
 			if err != nil {
 				return nil, err

@@ -3,7 +3,7 @@ WORKDIR /app
 COPY go.* ./
 RUN go mod download
 COPY . ./
-RUN export CGO_ENABLED=0 && go build -v -o git-gateway
+RUN export CGO_ENABLED=0 && go build  -ldflags "-X github.com/eisenwinter/git-gateway/cmd.Version=`git rev-parse HEAD`" -v -o git-gateway
 
 FROM gcr.io/distroless/static-debian11:nonroot
 WORKDIR /app

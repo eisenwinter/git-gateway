@@ -43,3 +43,9 @@ tasks:
     cmds:
       - staticcheck ./...
     silent: true
+
+  container:build:
+    desc: "Builds the docker container"
+    cmds:
+      - docker build -t ghcr.io/eisenwinter/git-gateway:latest  --label "org.opencontainers.image.source=https://github.com/eisenwinter/git-gateway" --label "org.opencontainers.image.description=git-gateway" --label "org.opencontainers.image.licenses=MIT" . 
+    silent: true
